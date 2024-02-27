@@ -1,20 +1,4 @@
-#include <stdio.h>
-#include "pico/stdlib.h"
-
-#include "sd_card.h"
-#include "ff.h"
-
-#include "hardware/gpio.h"
-#include "hardware/adc.h"
-#include "hardware/i2c.h"
-#include "hardware/rtc.h"
-#include "pico/util/datetime.h"
-
-#include "pico/binary_info.h"
-
-
-
-static int addr = 0x28; // i2c address of BNO055
+#include "VIPER-E.h"
 
 /*
 * Initializes BNO-055. When the BNO-055 is powered,
@@ -23,15 +7,13 @@ static int addr = 0x28; // i2c address of BNO055
 */
 static void bnoReset() {
     // switches BNO into IMU mode
-    // configuration address - 0x3D | IMU mode - 0x4
-    uint8_t config_buf[] = {(uint8_t)0x3D, (uint8_t)0x4};
-    i2c_write_blocking(i2c_default, addr, config_buf, 2, false);
+    uint8_t config_buf[] = {(uint8_t)CONFIGURATION_REGISTER, (uint8_t)IMU_MODE};
+    i2c_write_blocking(i2c_default, BNO055_ADDRESS, config_buf, 2, false);
     sleep_ms(30); // takes 30ms for changes to take place
 
     // sets the units to m/s^2 for the accelerometer
-    // unit address - 0x3B | m/s^2 units - 0x0
-    uint8_t unit_buf[] = {(uint8_t)0x3B, (uint8_t)0x0};
-    i2c_write_blocking(i2c_default, addr, unit_buf, 2, false);
+    uint8_t unit_buf[] = {(uint8_t)UNIT_REGISTER, (uint8_t)UNITS};
+    i2c_write_blocking(i2c_default, BNO055_ADDRESS, unit_buf, 2, false);
 } // bnoReset
 
 /*
@@ -42,11 +24,11 @@ static void bnoReset() {
 */
 int16_t bnoReadZ() {
     uint8_t buffer[2];
-    uint8_t val = 0xC; // Z axis register
+    uint8_t address = ACCEL_Z_AXIS;
 
     // writes to the IMU to tell it what address it wants to read from
-    i2c_write_blocking(i2c_default, addr, &val, 1, true);
-    i2c_read_blocking(i2c_default, addr, buffer, 2, false); // reads 2 bytes acceleration value
+    i2c_write_blocking(i2c_default, BNO055_ADDRESS, &address, 1, true);
+    i2c_read_blocking(i2c_default, BNO055_ADDRESS, buffer, 2, false); // reads 2 bytes acceleration value
 
     return (buffer[1] << 8 | buffer[0]); // returns a single 16 bit integer
 } // bnoReadZ
