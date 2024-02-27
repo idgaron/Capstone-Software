@@ -2,3 +2,8 @@
 	path = pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
 	branch = master
+
+[submodule "no-OS-FATFS-SD-SPI-RPi-Pico"]
+	path = VIPER-E/lib/no-OS-FATFS-SD-SPI-RPi-Pico
+	url = https://github.com/carlk3/no-OS-FatFS-SD-SPI-RPi-Pico.git
+	branch = master
