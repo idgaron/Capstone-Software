@@ -22,3 +22,10 @@
 // Common Hex Values
 #define IMU_MODE 0x04
 #define UNITS 0x00
+
+// GPIOs
+#define ADC_PIN 26
+#define ADC_CHANNEL 0
+#define SOLENOID_PIN 6
+
+#define CONVERSION_FACTOR 3.3f / (1 << 12)

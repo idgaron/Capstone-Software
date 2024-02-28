@@ -77,6 +77,12 @@ void initializeI2C() {
     bnoReset();
 } // initializeI2C
 
+void initializeGPIO(int GPIO, bool direction) {
+    gpio_init(GPIO);
+    gpio_set_dir(GPIO, direction);
+    gpio_put(GPIO, 0);
+}
+
 /*
 * Entry point into program
 */
@@ -109,18 +115,16 @@ int main() {
         while (true);
     }
 
-    double acc_z = 0;
-
     char datetime_buf[256];
     char *datetime_str = &datetime_buf[0];
 
     // Start on Friday 5th of June 2020 15:45:00
     datetime_t date = {
             .year  = 2024,
-            .month = 02,
+            .month = 06,
             .day   = 20,
-            .dotw  = 2, // 0 is Sunday, so 5 is Friday
-            .hour  = 18,
+            .dotw  = 05,
+            .hour  = 00,
             .min   = 00,
             .sec   = 00
     };
@@ -129,25 +133,59 @@ int main() {
     stdio_init_all();
 
     // Initialize periphials
-    initalizeADC(26, 0);
+    initalizeADC(ADC_PIN, ADC_CHANNEL);
     initializeI2C();
-    initializeRTC(date);
-    sleep_us(64);
+    initializeGPIO(SOLENOID_PIN, GPIO_OUT);
 
     // Wait for user to press 'enter' to continue
-    printf("\r\nAnalog read test. Press 'enter' to start.\r\n");
+    printf("\nPrototype test. Press 'enter' to start.\n");
     while (true) {
         buf[0] = getchar();
         if ((buf[0] == '\r') || (buf[0] == '\n')) {
             break;
         }
     }
+    printf("Beginning...\n");
 
-    int min = date.min;
-    uint16_t result = 0;
-    const float conversion_factor = 3.3f / (1 << 12);
+    uint16_t mfc_result = 0;
     int counter = 0;
+    char solenoidSet = 0;
 
+    // waits until positive acceleration to start logging data
+    while (((-1 * bnoReadZ()) / 100.0) < 0) {}
+    // double acc_z = (-1 * bnoReadZ()) / 100.0;
+    // while (acc_z < 0) {
+    //     printf("not logging | %f\n", acc_z);
+    //     acc_z = (-1 * bnoReadZ()) / 100.0;
+    // }
+
+    initializeRTC(date);
+    sleep_us(64);
+
+    double acc_z = bnoReadZ();
+    while (acc_z > -9) {
+        if (date.sec >= 3 && date.sec < 4) {
+            gpio_put(SOLENOID_PIN, 1);
+            solenoidSet = 1;
+        } // if
+        else if (date.sec >= 4 && solenoidSet) {
+            gpio_put(SOLENOID_PIN, 0);
+            solenoidSet = 0;
+        } // else if
+
+        mfc_result = adc_read();
+        acc_z = (-1 * bnoReadZ()) / 100.0;
+
+        // terminal output - comment out for actual testing
+        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\r\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+
+        ret = f_printf(&file, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+
+        rtc_get_datetime(&date);
+        sleep_us(50);
+        counter++;
+    } // while
+    
     // Close file
     fileResult = f_close(&file);
     if (fileResult != FR_OK) {
@@ -157,10 +195,5 @@ int main() {
 
     // Unmount drive
     f_unmount("0:");
-
-    // // Loop forever doing nothing
-    while (true) {
-        sleep_ms(1000);
-    }
 
 }
