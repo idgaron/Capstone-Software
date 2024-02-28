@@ -34,8 +34,8 @@ ax2.set_title('FFT')
 
 # Main loop for real-time plotting
 try:
-    xdata = []
-    ydata = []
+    xdata = np.arange(window_size)
+    ydata = np.zeros(window_size)
     while True:
         # Read data from serial port
         raw_data = ser.readline().decode().strip()
@@ -48,16 +48,14 @@ try:
             x = float(rp2040_data_split[1])
             y = float(rp2040_data_split[5])
             # Append new data
-            xdata.append(x)
-            ydata.append(y)
+            # Append new data
+            ydata = np.append(ydata, y)[-window_size:]
             
-
-            # Truncate data if it exceeds the window size
-            if len(xdata) > window_size:
-                ax1.set_xlim(xdata[-window_size], xdata[-1])
+            # Adjust x-axis limits to move the window
+            ax1.set_xlim(xdata[0], xdata[-1])
             
             # Update the plot with the new data
-            line1.set_data(xdata[-window_size:], ydata[-window_size:])
+            line1.set_data(xdata, ydata)
 
             fft_data = np.fft.fft(ydata[-window_size:])
             freq = np.fft.fftfreq(window_size, d=1/baudrate)
