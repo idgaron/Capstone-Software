@@ -83,17 +83,30 @@ void initializeGPIO(int GPIO, bool direction) {
     gpio_put(GPIO, 0);
 }
 
+void beep() {
+    for (int i = 0; i < 3; i++){
+        gpio_put(BUZZER_PIN,1);
+        sleep_ms(100);
+        gpio_put(BUZZER_PIN,0);
+        sleep_ms(100);
+    } // for
+}
+
 /*
 * Entry point into program
 */
 int main() {
     // variables to access and write to file
     FRESULT fileResult;
-    FATFS fileSystem;
-    FIL file;
+    FATFS fileSystem0, fileSystem1;
+    FIL file0, file1;
     int ret;
     char buf[100];
-    char filename[] = "prototype.csv";
+    char filename0[] = "0:/data.csv";
+    char filename1[] = "1:/data.csv";
+
+    // Initialize chosen serial port
+    stdio_init_all();
 
     // Initialize SD card
     if (!sd_init_driver()) {
@@ -102,18 +115,12 @@ int main() {
     }
 
     // Mount drive
-    fileResult = f_mount(&fileSystem, "0:", 1);
-    if (fileResult != FR_OK) {
-        printf("ERROR: Could not mount filesystem (%d)\r\n", fileResult);
-        while (true);
-    }
+    fileResult = f_mount(&fileSystem0, "0:", 1);
+    fileResult = f_mount(&fileSystem1, "1:", 1);
 
     // Open file for writing ()
-    fileResult = f_open(&file, filename, FA_WRITE | FA_CREATE_ALWAYS);
-    if (fileResult != FR_OK) {
-        printf("ERROR: Could not open file (%d)\r\n", fileResult);
-        while (true);
-    }
+    fileResult = f_open(&file0, filename0, FA_WRITE | FA_CREATE_ALWAYS);
+    fileResult = f_open(&file1, filename1, FA_WRITE | FA_CREATE_ALWAYS);
 
     char datetime_buf[256];
     char *datetime_str = &datetime_buf[0];
@@ -129,13 +136,11 @@ int main() {
             .sec   = 00
     };
 
-    // Initialize chosen serial port
-    stdio_init_all();
-
     // Initialize periphials
     initalizeADC(ADC_PIN, ADC_CHANNEL);
     initializeI2C();
     initializeGPIO(SOLENOID_PIN, GPIO_OUT);
+    initializeGPIO(BUZZER_PIN, GPIO_OUT);
 
     // Wait for user to press 'enter' to continue
     printf("\nPrototype test. Press 'enter' to start.\n");
@@ -146,25 +151,42 @@ int main() {
         }
     }
     printf("Beginning...\n");
+    gpio_put(BUZZER_PIN,1);
+    sleep_ms(3000);
+    gpio_put(BUZZER_PIN,0);
 
     uint16_t mfc_result = 0;
     int counter = 0;
     char solenoidSet = 0;
 
+    initializeRTC(date);
+    sleep_us(64);
+
     // waits until positive acceleration to start logging data
-    while (((-1 * bnoReadZ()) / 100.0) < 0) {}
-    // double acc_z = (-1 * bnoReadZ()) / 100.0;
-    // while (acc_z < 0) {
-    //     printf("not logging | %f\n", acc_z);
-    //     acc_z = (-1 * bnoReadZ()) / 100.0;
-    // }
+    while (((-1 * bnoReadZ()) / 100.0) < 0) {
+        if (date.sec % 10 == 0) {
+            sleep_ms(400);
+            printf("beep\n");
+            beep();
+        }
+        rtc_get_datetime(&date);
+    }
+        
+    double acc_z = (-1 * bnoReadZ()) / 100.0;
+    while (acc_z < 0) {
+        printf("not logging | %f\n", acc_z);
+        acc_z = (-1 * bnoReadZ()) / 100.0;
+    }
 
     initializeRTC(date);
     sleep_us(64);
 
-    double acc_z = bnoReadZ();
-    while (acc_z > -9) {
-        if (date.sec >= 3 && date.sec < 4) {
+    ret = f_printf(&file0, "time (uS), voltage (V), acceleration (m/s^2)\n");
+    ret = f_printf(&file1, "time (uS), voltage (V), acceleration (m/s^2)\n");
+    
+    acc_z = (-1 * bnoReadZ()) / 100.0;
+    while (acc_z > -9.0) {
+        if (date.sec >= 3 && date.sec < 7) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
         } // if
@@ -176,24 +198,23 @@ int main() {
         mfc_result = adc_read();
         acc_z = (-1 * bnoReadZ()) / 100.0;
 
-        // terminal output - comment out for actual testing
-        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\r\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+        // terminal output - comment out for actual implementation
+        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
 
-        ret = f_printf(&file, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file1, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
 
         rtc_get_datetime(&date);
-        sleep_us(50);
-        counter++;
+        sleep_us(500);
+        counter += 50;
     } // while
     
     // Close file
-    fileResult = f_close(&file);
-    if (fileResult != FR_OK) {
-        printf("ERROR: Could not close file (%d)\r\n", fileResult);
-        while (true);
-    }
+    fileResult = f_close(&file0);
+    fileResult = f_close(&file1);
 
     // Unmount drive
     f_unmount("0:");
+    f_unmount("1:");
 
 }

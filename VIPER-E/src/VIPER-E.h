@@ -27,5 +27,6 @@
 #define ADC_PIN 26
 #define ADC_CHANNEL 0
 #define SOLENOID_PIN 6
+#define BUZZER_PIN 15
 
 #define CONVERSION_FACTOR 3.3f / (1 << 12)
