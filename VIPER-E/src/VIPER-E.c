@@ -53,9 +53,7 @@ void initializeRTC(datetime_t date) {
 */
 void initalizeADC(int GPIO, int channel) {
     adc_init();
-    // Select ADC input 0 (GPIO26)
     adc_gpio_init(GPIO);
-    adc_select_input(channel);
 } // initializeADC
 
 /*
@@ -83,15 +81,6 @@ void initializeGPIO(int GPIO, bool direction) {
     gpio_put(GPIO, 0);
 }
 
-void beep() {
-    for (int i = 0; i < 3; i++){
-        gpio_put(BUZZER_PIN,1);
-        sleep_ms(100);
-        gpio_put(BUZZER_PIN,0);
-        sleep_ms(100);
-    } // for
-}
-
 /*
 * Entry point into program
 */
@@ -114,18 +103,20 @@ int main() {
         while (true);
     }
 
+    /* FILE SYSTEM INITIALIZATION */
     // Mount drive
     fileResult = f_mount(&fileSystem0, "0:", 1);
     fileResult = f_mount(&fileSystem1, "1:", 1);
 
-    // Open file for writing ()
+    // Open file for writing
     fileResult = f_open(&file0, filename0, FA_WRITE | FA_CREATE_ALWAYS);
     fileResult = f_open(&file1, filename1, FA_WRITE | FA_CREATE_ALWAYS);
 
+    /* RTC INITIALIZATION */
     char datetime_buf[256];
     char *datetime_str = &datetime_buf[0];
 
-    // Start on Friday 5th of June 2020 15:45:00
+    // Start at 0 for H:M:S
     datetime_t date = {
             .year  = 2024,
             .month = 06,
@@ -136,12 +127,14 @@ int main() {
             .sec   = 00
     };
 
-    // Initialize periphials
-    initalizeADC(ADC_PIN, ADC_CHANNEL);
-    initializeI2C();
-    initializeGPIO(SOLENOID_PIN, GPIO_OUT);
-    initializeGPIO(BUZZER_PIN, GPIO_OUT);
+    /* INITIALIZE PERIPHIALS */
+    initalizeADC(ADC_PIN_0, ADC_CHANNEL_0); // mfc control patch
+    initalizeADC(ADC_PIN_1, ADC_CHANNEL_1); // mfc experimental patch 
+    initializeI2C();                        // I2C
+    initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
+    initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
 
+    /* TESTING PROMPT - REMOVE BEFORE USE */
     // Wait for user to press 'enter' to continue
     printf("\nPrototype test. Press 'enter' to start.\n");
     while (true) {
@@ -155,7 +148,8 @@ int main() {
     sleep_ms(3000);
     gpio_put(BUZZER_PIN,0);
 
-    uint16_t mfc_result = 0;
+    uint16_t mfc_control = 0;
+    uint16_t mfc_experimental = 0;
     int counter = 0;
     char solenoidSet = 0;
 
@@ -165,13 +159,16 @@ int main() {
     // waits until positive acceleration to start logging data
     while (((-1 * bnoReadZ()) / 100.0) < 0) {
         if (date.sec % 10 == 0) {
-            sleep_ms(400);
             printf("beep\n");
-            beep();
+            gpio_put(BUZZER_PIN,1);
+        }
+        else {
+            gpio_put(BUZZER_PIN,0);
         }
         rtc_get_datetime(&date);
     }
-        
+
+    gpio_put(BUZZER_PIN,0); // resets buzzer
     double acc_z = (-1 * bnoReadZ()) / 100.0;
     while (acc_z < 0) {
         printf("not logging | %f\n", acc_z);
@@ -185,7 +182,8 @@ int main() {
     ret = f_printf(&file1, "time (uS), voltage (V), acceleration (m/s^2)\n");
     
     acc_z = (-1 * bnoReadZ()) / 100.0;
-    while (acc_z > -9.0) {
+
+    while (date.min < 5) { // launch will last 300 seconds
         if (date.sec >= 3 && date.sec < 7) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
@@ -195,14 +193,17 @@ int main() {
             solenoidSet = 0;
         } // else if
 
-        mfc_result = adc_read();
+        adc_select_input(0);
+        mfc_control = adc_read();
+        adc_select_input(1);
+        mfc_experimental = adc_read();
         acc_z = (-1 * bnoReadZ()) / 100.0;
 
         // terminal output - comment out for actual implementation
-        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
-        ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
-        ret = f_printf(&file1, "%d,%f,%0.2f\n", counter, mfc_result * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file1, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
         rtc_get_datetime(&date);
         sleep_us(500);

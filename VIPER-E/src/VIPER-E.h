@@ -24,8 +24,10 @@
 #define UNITS 0x00
 
 // GPIOs
-#define ADC_PIN 26
-#define ADC_CHANNEL 0
+#define ADC_PIN_0 26
+#define ADC_PIN_1 27
+#define ADC_CHANNEL_0 0
+#define ADC_CHANNEL_1 1
 #define SOLENOID_PIN 6
 #define BUZZER_PIN 15
 
