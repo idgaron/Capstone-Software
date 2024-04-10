@@ -20,7 +20,7 @@
 #define ACCEL_Z_AXIS 0xC
 
 // Common Hex Values
-#define IMU_MODE 0x04
+#define IMU_MODE 0x01
 #define UNITS 0x00
 
 // GPIOs

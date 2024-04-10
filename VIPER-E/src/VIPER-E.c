@@ -63,6 +63,7 @@ void initalizeADC(int GPIO, int channel) {
 */
 void initializeI2C() {
     i2c_init(i2c_default, 400 * 1000);
+    // changed defaults in pico.h --> (SDA = 4 --> 2, SCL = 5 --> 3, CHAN 0 --> 1)
     gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
@@ -136,14 +137,13 @@ int main() {
 
     /* TESTING PROMPT - REMOVE BEFORE USE */
     // Wait for user to press 'enter' to continue
-    printf("\nPrototype test. Press 'enter' to start.\n");
-    while (true) {
-        buf[0] = getchar();
-        if ((buf[0] == '\r') || (buf[0] == '\n')) {
-            break;
-        }
-    }
-    printf("Beginning...\n");
+    // printf("\nPrototype test. Press 'enter' to start.\n");
+    // while (true) {
+    //     buf[0] = getchar();
+    //     if ((buf[0] == '\r') || (buf[0] == '\n')) {
+    //         break;
+    //     }
+    // }
     gpio_put(BUZZER_PIN,1);
     sleep_ms(3000);
     gpio_put(BUZZER_PIN,0);
@@ -159,7 +159,6 @@ int main() {
     // waits until positive acceleration to start logging data
     while (((-1 * bnoReadZ()) / 100.0) < 0) {
         if (date.sec % 10 == 0) {
-            printf("beep\n");
             gpio_put(BUZZER_PIN,1);
         }
         else {
@@ -182,33 +181,35 @@ int main() {
     ret = f_printf(&file1, "time (uS), voltage (V), acceleration (m/s^2)\n");
     
     acc_z = (-1 * bnoReadZ()) / 100.0;
+    int seconds = date.sec;
+    int minutes = date.min;
 
-    while (date.min < 5) { // launch will last 300 seconds
-        if (date.sec >= 3 && date.sec < 7) {
+    while ((date.min - minutes) < 1) { // launch will last 300 seconds
+        if ((date.sec - seconds) >= 3 && (date.sec - seconds) < 5 && !solenoidSet) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
         } // if
-        else if (date.sec >= 4 && solenoidSet) {
+        else if ((date.sec - seconds) >= 5 && solenoidSet) {
             gpio_put(SOLENOID_PIN, 0);
-            solenoidSet = 0;
         } // else if
 
         adc_select_input(0);
         mfc_control = adc_read();
         adc_select_input(1);
         mfc_experimental = adc_read();
-        acc_z = (-1 * bnoReadZ()) / 100.0;
+        if (counter % 100 == 0)
+            acc_z = (-1 * bnoReadZ()) / 100.0;
 
-        // terminal output - comment out for actual implementation
-        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
+        // // terminal output - comment out for actual implementation
+        // printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
         ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
         ret = f_printf(&file1, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
         rtc_get_datetime(&date);
-        sleep_us(500);
-        counter += 50;
+        counter += 1;
     } // while
+    ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
     
     // Close file
     fileResult = f_close(&file0);
