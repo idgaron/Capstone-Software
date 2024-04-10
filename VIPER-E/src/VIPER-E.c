@@ -197,7 +197,7 @@ int main() {
         mfc_control = adc_read();
         adc_select_input(1);
         mfc_experimental = adc_read();
-        if (counter % 100 == 0)
+        if (counter % 20 == 0)
             acc_z = (-1 * bnoReadZ()) / 100.0;
 
         // // terminal output - comment out for actual implementation
