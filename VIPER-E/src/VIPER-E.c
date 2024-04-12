@@ -92,8 +92,8 @@ int main() {
     FIL file0, file1;
     int ret;
     char buf[100];
-    char filename0[] = "0:/data.csv";
-    char filename1[] = "1:/data.csv";
+    char filename0[] = "0:/jesushelpus.csv";
+    char filename1[] = "1:/jesushelpus.csv";
 
     // Initialize chosen serial port
     stdio_init_all();
@@ -112,6 +112,10 @@ int main() {
     // Open file for writing
     fileResult = f_open(&file0, filename0, FA_WRITE | FA_CREATE_ALWAYS);
     fileResult = f_open(&file1, filename1, FA_WRITE | FA_CREATE_ALWAYS);
+
+    // write column headings
+    ret = f_printf(&file0, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
+    ret = f_printf(&file1, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
 
     /* RTC INITIALIZATION */
     char datetime_buf[256];
@@ -171,8 +175,6 @@ int main() {
     initializeRTC(date);
     sleep_us(64);
 
-    ret = f_printf(&file0, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
-    ret = f_printf(&file1, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
     
     double acc_z = (-1 * bnoReadZ()) / 100.0;
     int seconds = date.sec;
@@ -183,6 +185,7 @@ int main() {
     absolute_time_t startTime = get_absolute_time();
     absolute_time_t prevTime = get_absolute_time();
     int64_t time_dif = 0;
+
     while (time_dif < 60000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
         if (time_dif >= 3000000 && time_dif < 5000000 && !solenoidSet) {
@@ -205,7 +208,7 @@ int main() {
 
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
         ret = f_printf(&file0, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
-        ret = f_printf(&file1, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
+        //ret = f_printf(&file1, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
 
         counter += 1;
         while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 2000) {}
