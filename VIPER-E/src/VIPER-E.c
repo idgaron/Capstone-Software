@@ -180,7 +180,8 @@ int main() {
     int seconds = date.sec;
     int minutes = date.min;
 
-    ret = f_printf(&file0, "%d,%f,%0.2f\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
+    ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", counter, mfc_control * CONVERSION_FACTOR, mfc_control * CONVERSION_FACTOR);
+    ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", counter, mfc_control * CONVERSION_FACTOR, mfc_control * CONVERSION_FACTOR);
 
     absolute_time_t startTime = get_absolute_time();
     absolute_time_t prevTime = get_absolute_time();
@@ -208,7 +209,7 @@ int main() {
 
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
         ret = f_printf(&file0, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
-        //ret = f_printf(&file1, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file1, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
 
         counter += 1;
         while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 2000) {}
