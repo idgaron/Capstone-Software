@@ -92,8 +92,8 @@ int main() {
     FIL file0, file1;
     int ret;
     char buf[100];
-    char filename0[] = "0:/jesushelpus.csv";
-    char filename1[] = "1:/jesushelpus.csv";
+    char filename0[] = "0:/TEST_LAUNCH_SD0.csv";
+    char filename1[] = "1:/TEST_LAUNCH_SD1.csv";
 
     // Initialize chosen serial port
     stdio_init_all();
@@ -163,7 +163,7 @@ int main() {
 
     // waits until positive acceleration to start logging data
     //while (((-1 * bnoReadZ()) / 100.0) < 0) {
-    while ((bnoReadZ()/100.0 < 14.7) && (bnoReadZ()/100.0 > -14.7)) {
+    while ((bnoReadZ()/100.0 < 24.53) && (bnoReadZ()/100.0 > -24.53)) {
         //printf("%0.2f\n", ((-1 * bnoReadZ()) / 100.0));
         if (date.sec % 10 == 0) {
             gpio_put(BUZZER_PIN,1);
