@@ -114,8 +114,8 @@ int main() {
     fileResult = f_open(&file1, filename1, FA_WRITE | FA_CREATE_ALWAYS);
 
     // write column headings
-    ret = f_printf(&file0, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
-    ret = f_printf(&file1, "time_diff (us), samples, voltage (V), acceleration (m/s^2)\n");
+    ret = f_printf(&file0, "time_diff (us), MFC_C (V), MFC_E (V)\n");
+    ret = f_printf(&file1, "time_diff (us), MFC_C (V), MFC_E (V)\n");
 
     /* RTC INITIALIZATION */
     char datetime_buf[256];
@@ -148,8 +148,9 @@ int main() {
     //         break;
     //     }
     // }
+
     gpio_put(BUZZER_PIN,1);
-    sleep_ms(3000);
+    sleep_ms(5000);
     gpio_put(BUZZER_PIN,0);
 
     uint16_t mfc_control = 0;
@@ -161,7 +162,9 @@ int main() {
     sleep_us(64);
 
     // waits until positive acceleration to start logging data
-    while (((-1 * bnoReadZ()) / 100.0) < 0) {
+    //while (((-1 * bnoReadZ()) / 100.0) < 0) {
+    while ((bnoReadZ()/100.0 < 14.7) && (bnoReadZ()/100.0 > -14.7)) {
+        //printf("%0.2f\n", ((-1 * bnoReadZ()) / 100.0));
         if (date.sec % 10 == 0) {
             gpio_put(BUZZER_PIN,1);
         }
@@ -172,28 +175,19 @@ int main() {
     }
 
     gpio_put(BUZZER_PIN,0); // resets buzzer
-    initializeRTC(date);
-    sleep_us(64);
-
-    
     double acc_z = (-1 * bnoReadZ()) / 100.0;
-    int seconds = date.sec;
-    int minutes = date.min;
-
-    ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", counter, mfc_control * CONVERSION_FACTOR, mfc_control * CONVERSION_FACTOR);
-    ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", counter, mfc_control * CONVERSION_FACTOR, mfc_control * CONVERSION_FACTOR);
 
     absolute_time_t startTime = get_absolute_time();
     absolute_time_t prevTime = get_absolute_time();
     int64_t time_dif = 0;
 
-    while (time_dif < 60000000) { // launch will last 300 seconds
+    while (time_dif < 300000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
-        if (time_dif >= 3000000 && time_dif < 5000000 && !solenoidSet) {
+        if (time_dif >= 500000 && time_dif < 1500000 && !solenoidSet) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
         } // if
-        else if (time_dif >= 5000000 && time_dif < 7000000 && solenoidSet) {
+        else if (time_dif >= 1500000 && time_dif < 3000000 && solenoidSet) {
             gpio_put(SOLENOID_PIN, 0);
         } // else if
 
@@ -201,18 +195,16 @@ int main() {
         mfc_control = adc_read();
         adc_select_input(1);
         mfc_experimental = adc_read();
-        // if (counter % 20 == 0)
-        // acc_z = (-1 * bnoReadZ()) / 100.0;
 
         // // terminal output - comment out for actual implementation
         // printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
-        ret = f_printf(&file0, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
-        ret = f_printf(&file1, "%d,%d,%0.4f,%0.4f\n", (int) time_dif, counter, mfc_experimental * CONVERSION_FACTOR, acc_z);
+        ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+        ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
 
         counter += 1;
-        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 2000) {}
+        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 500) {}
     } // while
     
     // Close file
