@@ -1,0 +1,49 @@
+% Script to plot and calcuate the resulting data
+
+data = readtable('payload_test.xlsx');
+time_s = (data.time).*10^-6;
+
+graph = tiledlayout('flow');
+
+nexttile([1 2]);
+plot(time_s, data.MFC_C);
+xlim("tight")
+ylim([0 3])
+title('Control Patch Data');
+xlabel('Time (s)')
+
+nexttile([3 4]);
+plot(time_s, data.MFC_E, 'r');
+xlim("tight")
+title('Experimental Patch Data');
+xlabel('Time (s)')
+
+nexttile;
+plot(time_s, data.MFC_C);
+xlim("tight")
+xlim([1 1.25])
+ylim([0 3])
+title('Response Before State Change');
+xlabel('Time (s)')
+
+subplot(4, 2, 6);
+plot(time_s, data.MFC_C);
+xlim("tight")
+xlim([50 50.25])
+ylim([0 3])
+title('Response After State Change');
+xlabel('Time (s)')
+
+subplot(4, 2, 7);
+plot(time_s, data.MFC_E, 'r');
+xlim("tight")
+xlim([1 1.25])
+ylim([0 3])
+xlabel('Time (s)')
+
+subplot(4, 2, 8);
+plot(time_s, data.MFC_E, 'r');
+xlim("tight")
+xlim([50 50.25])
+ylim([0 3])
+xlabel('Time (s)')
