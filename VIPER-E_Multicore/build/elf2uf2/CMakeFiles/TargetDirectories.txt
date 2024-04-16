@@ -1,0 +1,5 @@
+/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/elf2uf2/CMakeFiles/elf2uf2.dir
+/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/elf2uf2/CMakeFiles/edit_cache.dir
+/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/elf2uf2/CMakeFiles/rebuild_cache.dir
+/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/elf2uf2/boot_uf2_headers/CMakeFiles/edit_cache.dir
+/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/elf2uf2/boot_uf2_headers/CMakeFiles/rebuild_cache.dir
