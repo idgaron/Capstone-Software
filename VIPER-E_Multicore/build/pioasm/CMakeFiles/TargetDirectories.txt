@@ -1,3 +1,0 @@
-/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/pioasm/CMakeFiles/pioasm.dir
-/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/pioasm/CMakeFiles/edit_cache.dir
-/Users/zachjones/Desktop/Spring_2024_Classes/Capstone_2/Capstone-Software/VIPER-E_Multicore/build/pioasm/CMakeFiles/rebuild_cache.dir
