@@ -86,6 +86,7 @@ void initializeGPIO(int GPIO, bool direction) {
 * Entry point into program
 */
 int main() {
+    sleep_ms(1000); // sleeps for 1 second to allow BNO to power before initializing
     // variables to access and write to file
     FRESULT fileResult;
     FATFS fileSystem0, fileSystem1;
@@ -102,6 +103,14 @@ int main() {
     if (!sd_init_driver()) {
         printf("ERROR: Could not initialize SD card\r\n");
         while (true);
+    }
+    
+    initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
+    for (int i = 0; i < 100; i++) {
+        gpio_put(BUZZER_PIN, 1);
+        sleep_ms(50);
+        gpio_put(BUZZER_PIN, 0);
+        sleep_ms(50);
     }
 
     /* FILE SYSTEM INITIALIZATION */
@@ -121,6 +130,12 @@ int main() {
     char datetime_buf[256];
     char *datetime_str = &datetime_buf[0];
 
+    /* INITIALIZE PERIPHIALS */
+    initalizeADC(ADC_PIN_0, ADC_CHANNEL_0); // mfc control patch
+    initalizeADC(ADC_PIN_1, ADC_CHANNEL_1); // mfc experimental patch 
+    initializeI2C();                        // I2C
+    initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
+
     // Start at 0 for H:M:S
     datetime_t date = {
             .year  = 2024,
@@ -131,13 +146,6 @@ int main() {
             .min   = 00,
             .sec   = 00
     };
-
-    /* INITIALIZE PERIPHIALS */
-    initalizeADC(ADC_PIN_0, ADC_CHANNEL_0); // mfc control patch
-    initalizeADC(ADC_PIN_1, ADC_CHANNEL_1); // mfc experimental patch 
-    initializeI2C();                        // I2C
-    initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
-    initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
 
     /* TESTING PROMPT - REMOVE BEFORE USE */
     // Wait for user to press 'enter' to continue
@@ -161,18 +169,18 @@ int main() {
     initializeRTC(date);
     sleep_us(64);
 
-    // waits until positive acceleration to start logging data
-    //while (((-1 * bnoReadZ()) / 100.0) < 0) {
-    while ((bnoReadZ()/100.0 < 24.53) && (bnoReadZ()/100.0 > -24.53)) {
-        //printf("%0.2f\n", ((-1 * bnoReadZ()) / 100.0));
-        if (date.sec % 10 == 0) {
-            gpio_put(BUZZER_PIN,1);
-        }
-        else {
-            gpio_put(BUZZER_PIN,0);
-        }
-        rtc_get_datetime(&date);
-    }
+    // // waits until positive acceleration to start logging data
+    // //while (((-1 * bnoReadZ()) / 100.0) < 0) {
+    // while ((bnoReadZ()/100.0 < 24.53) && (bnoReadZ()/100.0 > -24.53)) {
+    //     printf("%0.2f\n", ((bnoReadZ()) / 100.0));
+    //     if (date.sec % 10 == 0) {
+    //         gpio_put(BUZZER_PIN,1);
+    //     }
+    //     else {
+    //         gpio_put(BUZZER_PIN,0);
+    //     }
+    //     rtc_get_datetime(&date);
+    // }
 
     gpio_put(BUZZER_PIN,0); // resets buzzer
     double acc_z = (-1 * bnoReadZ()) / 100.0;
@@ -181,13 +189,13 @@ int main() {
     absolute_time_t prevTime = get_absolute_time();
     int64_t time_dif = 0;
 
-    while (time_dif < 300000000) { // launch will last 300 seconds
+    while (time_dif < 30000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
-        if (time_dif >= 500000 && time_dif < 1500000 && !solenoidSet) {
+        if (time_dif >= 15000000 && time_dif < 17000000 && !solenoidSet) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
         } // if
-        else if (time_dif >= 1500000 && time_dif < 3000000 && solenoidSet) {
+        else if (time_dif >= 17000000 && time_dif < 19000000 && solenoidSet) {
             gpio_put(SOLENOID_PIN, 0);
         } // else if
 
@@ -214,5 +222,6 @@ int main() {
     // Unmount drive
     f_unmount("0:");
     f_unmount("1:");
+    printf("hello there \n");
 
 }
