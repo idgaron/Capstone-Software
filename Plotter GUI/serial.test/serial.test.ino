@@ -32,6 +32,6 @@ void loop() {
     V = 0;
   }
   
-  delayMicroseconds(100);
+  //delay(50);
 
 }
