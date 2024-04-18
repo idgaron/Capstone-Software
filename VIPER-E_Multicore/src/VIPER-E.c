@@ -1,4 +1,5 @@
 #include "VIPER-E.h"
+#include <string.h>
 
 /*
 * Initializes BNO-055. When the BNO-055 is powered,
@@ -82,15 +83,75 @@ void initializeGPIO(int GPIO, bool direction) {
     gpio_put(GPIO, 0);
 }
 
-#define BUFFER_SIZE 10
+#define BUFFER_SIZE 512
+volatile bool core0_finished = false;
 
-struct DataBuffer {
+// Define a structure for the circular buffer
+struct CircularBuffer {
     uint16_t mfc_control[BUFFER_SIZE];
     uint16_t mfc_experimental[BUFFER_SIZE];
     int64_t time_dif[BUFFER_SIZE];
     volatile uint8_t write_index;
     volatile uint8_t read_index;
-} data_buffer;
+};
+
+// Declare the circular buffer
+struct CircularBuffer data_buffer;
+
+// Initialize the circular buffer
+void initializeCircularBuffer() {
+    data_buffer.write_index = 0;
+    data_buffer.read_index = 0;
+}
+
+void clearCircularBuffer() {
+    data_buffer.write_index = 0;
+    data_buffer.read_index = 0;
+}
+
+// Check if the circular buffer is full
+bool isBufferFull() {
+    return ((data_buffer.write_index + 1) % BUFFER_SIZE == data_buffer.read_index);
+}
+
+// Check if the circular buffer is empty
+bool isBufferEmpty() {
+    return (data_buffer.write_index == data_buffer.read_index);
+}
+
+// Add data to the circular buffer
+bool addToBuffer(uint16_t mfc_control, uint16_t mfc_experimental, int64_t time_dif) {
+    if (!isBufferFull()) {
+        data_buffer.mfc_control[data_buffer.write_index] = mfc_control;
+        data_buffer.mfc_experimental[data_buffer.write_index] = mfc_experimental;
+        data_buffer.time_dif[data_buffer.write_index] = time_dif;
+        data_buffer.write_index = (data_buffer.write_index + 1) % BUFFER_SIZE;
+        return true; // Successfully added to the buffer
+    }
+    return false; // Buffer is full
+}
+
+// Remove data from the circular buffer
+bool removeFromBuffer(uint16_t *mfc_control, uint16_t *mfc_experimental, int64_t *time_dif) {
+    if (!isBufferEmpty()) {
+        *mfc_control = data_buffer.mfc_control[data_buffer.read_index];
+        *mfc_experimental = data_buffer.mfc_experimental[data_buffer.read_index];
+        *time_dif = data_buffer.time_dif[data_buffer.read_index];
+        data_buffer.read_index = (data_buffer.read_index + 1) % BUFFER_SIZE;
+        return true; // Successfully removed from the buffer
+    }
+    return false; // Buffer is empty
+}
+
+// Calculate the number of bytes in the circular buffer
+int bytes_in_buffer() {
+    int num_elements = (data_buffer.write_index >= data_buffer.read_index) ?
+                       (data_buffer.write_index - data_buffer.read_index) :
+                       (BUFFER_SIZE - data_buffer.read_index + data_buffer.write_index);
+
+    int num_bytes = num_elements * (sizeof(uint16_t) * 2 + sizeof(int64_t));
+    return num_bytes;
+}
 
 // Setup up method for Core 1
 void core_1(){
@@ -100,8 +161,22 @@ void core_1(){
     FIL file0, file1;
     int ret;
     char buf[100];
-    char filename0[] = "0:/TEST_LAUNCH_SD0.csv";
-    char filename1[] = "1:/TEST_LAUNCH_SD1.csv";
+    char filename0[] = "0:/TEST0.csv";
+    char filename1[] = "1:/TEST1.csv";
+
+    // Start at 0 for H:M:S
+    datetime_t date = {
+            .year  = 2024,
+            .month = 06,
+            .day   = 20,
+            .dotw  = 05,
+            .hour  = 00,
+            .min   = 00,
+            .sec   = 00
+    };    
+
+    initializeRTC(date);
+    sleep_us(64);
 
     // Initialize chosen serial port
     stdio_init_all();
@@ -125,23 +200,28 @@ void core_1(){
     ret = f_printf(&file0, "time_diff (us), MFC_C (V), MFC_E (V)\n");
     ret = f_printf(&file1, "time_diff (us), MFC_C (V), MFC_E (V)\n");
     
-    while (true){
-        while (data_buffer.read_index == data_buffer.write_index){
-            tight_loop_contents();
-        }
-        uint8_t idx = data_buffer.read_index;
-        uint16_t mfc_control = data_buffer.mfc_control[idx];
-        uint16_t mfc_experimental = data_buffer.mfc_experimental[idx];
-        int64_t time_dif = data_buffer.time_dif[idx];
+    
+    int64_t write_time = 0;
+    
+    while (!core0_finished){
+        if (bytes_in_buffer() >= 512) {
+            for (int i = 0; i < 512; i++) {
+                uint16_t mfc_control;
+                uint16_t mfc_experimental;
+                int64_t time_dif;
 
-        ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
-        ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+                // Remove data from the circular buffer
+                if (removeFromBuffer(&mfc_control, &mfc_experimental, &time_dif)) {
+                    // Data successfully removed from buffer
+                    char buffer[100];
+                    sprintf(buffer, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+                    f_write(&file0, buffer, strlen(buffer), NULL);
+                    f_write(&file1, buffer, strlen(buffer), NULL);
+                }
+            }
+        }
     }
     
-
-    /*while(1){
-        i = 1;
-    }*/
     // Close file
     fileResult = f_close(&file0);
     fileResult = f_close(&file1);
@@ -154,6 +234,14 @@ void core_1(){
 // Setup up method for Core 0
 void core_0(){
     /* RTC INITIALIZATION */
+    data_buffer.write_index = 0;
+    data_buffer.read_index = 0;
+    stdio_init_all();
+    
+    multicore_reset_core1();
+
+    multicore_launch_core1(core_1);
+
     char datetime_buf[256];
     char *datetime_str = &datetime_buf[0];
 
@@ -175,16 +263,6 @@ void core_0(){
     initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
     initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
 
-    /* TESTING PROMPT - REMOVE BEFORE USE */
-    // Wait for user to press 'enter' to continue
-    // printf("\nPrototype test. Press 'enter' to start.\n");
-    // while (true) {
-    //     buf[0] = getchar();
-    //     if ((buf[0] == '\r') || (buf[0] == '\n')) {
-    //         break;
-    //     }
-    // }
-
     gpio_put(BUZZER_PIN,1);
     sleep_ms(5000);
     gpio_put(BUZZER_PIN,0);
@@ -197,18 +275,8 @@ void core_0(){
     initializeRTC(date);
     sleep_us(64);
 
-    // waits until positive acceleration to start logging data
-    //while (((-1 * bnoReadZ()) / 100.0) < 0) {
-    while ((bnoReadZ()/100.0 < 24.53) && (bnoReadZ()/100.0 > -24.53)) {
-        //printf("%0.2f\n", ((-1 * bnoReadZ()) / 100.0));
-        if (date.sec % 10 == 0) {
-            gpio_put(BUZZER_PIN,1);
-        }
-        else {
-            gpio_put(BUZZER_PIN,0);
-        }
-        rtc_get_datetime(&date);
-    }
+    gpio_put(BUZZER_PIN, 1);
+    sleep_ms(500);
 
     gpio_put(BUZZER_PIN,0); // resets buzzer
     double acc_z = (-1 * bnoReadZ()) / 100.0;
@@ -217,42 +285,32 @@ void core_0(){
     absolute_time_t prevTime = get_absolute_time();
     int64_t time_dif = 0;
 
-    while (time_dif < 300000000) { // launch will last 300 seconds
+    while (time_dif < 10000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
-        if (time_dif >= 500000 && time_dif < 1500000 && !solenoidSet) {
-            gpio_put(SOLENOID_PIN, 1);
-            solenoidSet = 1;
-        } // if
-        else if (time_dif >= 1500000 && time_dif < 3000000 && solenoidSet) {
-            gpio_put(SOLENOID_PIN, 0);
-        } // else if
 
         adc_select_input(0);
         mfc_control = adc_read();
         adc_select_input(1);
         mfc_experimental = adc_read();
-
-        uint8_t next_write_index = (data_buffer.write_index + 1)%BUFFER_SIZE;
-
-        // Write data to buffer
-        if (next_write_index != data_buffer.read_index){
-            data_buffer.mfc_control[data_buffer.write_index] = mfc_control;
-            data_buffer.mfc_experimental[data_buffer.write_index] = mfc_experimental;
-            data_buffer.time_dif[data_buffer.write_index] = time_dif;
-            data_buffer.write_index = next_write_index;
-        }
-        else {
-
-        }
-
-        // // terminal output - comment out for actual implementation
-        // printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
-
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
+
+        addToBuffer(mfc_control, mfc_experimental, time_dif);
         
         counter += 1;
-        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 500) {}
+
+        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 800) {} 
+        //800 seems to be the lowest before running to issues. This produces a 1250 Hz frequency
+
+    
     } // while
+    core0_finished = true;
+    gpio_put(BUZZER_PIN, 1);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 0);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 1);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 0);
 
 }
 
@@ -261,12 +319,7 @@ void core_0(){
 * Entry point into program
 */
 int main() {
-    data_buffer.write_index = 0;
-    data_buffer.read_index = 0;
-
-    multicore_launch_core1(core_1);
-
+    initializeCircularBuffer();
     core_0();
-
     return 0;
 }

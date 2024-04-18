@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Parameters
-port = '/dev/cu.wchusbserial57710030221'
+port = '/dev/tty.usbmodem1101'
 baudrate = 115200
 window_size = 100  # Number of points to display in the plot
-sampling_frequency = 20000  # Sampling frequency in Hz
+sampling_frequency = 1200  # Sampling frequency in Hz
 fft_frequency_range = (0, sampling_frequency / 2)  # Nyquist frequency
 update_interval = 10  # Update plot every 10 data points
 
