@@ -263,9 +263,9 @@ void core_0(){
     initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
     initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
 
-    gpio_put(BUZZER_PIN,1);
-    sleep_ms(5000);
-    gpio_put(BUZZER_PIN,0);
+    // gpio_put(BUZZER_PIN,1);
+    // sleep_ms(5000);
+    // gpio_put(BUZZER_PIN,0);
 
     uint16_t mfc_control = 0;
     uint16_t mfc_experimental = 0;
@@ -276,7 +276,12 @@ void core_0(){
     sleep_us(64);
 
     gpio_put(BUZZER_PIN, 1);
-    sleep_ms(500);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 0);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 1);
+    sleep_ms(100);
+    gpio_put(BUZZER_PIN, 0);
 
     gpio_put(BUZZER_PIN,0); // resets buzzer
     double acc_z = (-1 * bnoReadZ()) / 100.0;
@@ -287,6 +292,13 @@ void core_0(){
 
     while (time_dif < 10000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
+        if (time_dif >= 5000000 && time_dif < 7000000 && !solenoidSet) {
+            gpio_put(SOLENOID_PIN, 1);
+            solenoidSet = 1;
+        } // if
+        else if (time_dif >= 7000000 && time_dif < 9000000 && solenoidSet) {
+            gpio_put(SOLENOID_PIN, 0);
+        } // else if
 
         adc_select_input(0);
         mfc_control = adc_read();

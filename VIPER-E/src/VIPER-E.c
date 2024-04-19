@@ -197,11 +197,11 @@ int main() {
         mfc_experimental = adc_read();
 
         // // terminal output - comment out for actual implementation
-        // printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
+        printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
 
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
-        ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
-        ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+        // ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+        // ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
 
         counter += 1;
         while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 500) {}
