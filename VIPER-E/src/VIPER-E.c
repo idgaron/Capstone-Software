@@ -189,7 +189,7 @@ int main() {
     absolute_time_t prevTime = get_absolute_time();
     int64_t time_dif = 0;
 
-    while (time_dif < 30000000) { // launch will last 300 seconds
+    while (time_dif < 60000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
         if (time_dif >= 15000000 && time_dif < 17000000 && !solenoidSet) {
             gpio_put(SOLENOID_PIN, 1);
@@ -204,15 +204,16 @@ int main() {
         adc_select_input(1);
         mfc_experimental = adc_read();
 
-        // // terminal output - comment out for actual implementation
-        // printf("time: %d (x100us), voltage: %f V, acceleration: %0.2f m/s^2\n", counter, mfc_control * CONVERSION_FACTOR, acc_z);
-
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
-        ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
-        ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+
+        // // terminal output - comment out for actual implementation
+        printf("%f , %0.4f\n", (float) (time_dif/1000.0), (mfc_experimental * CONVERSION_FACTOR));
+
+        //ret = f_printf(&file0, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
+        //ret = f_printf(&file1, "%09d,%0.4f,%0.4f\n", time_dif, mfc_control * CONVERSION_FACTOR, mfc_experimental * CONVERSION_FACTOR);
 
         counter += 1;
-        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 500) {}
+        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 1000) {}
     } // while
     
     // Close file
