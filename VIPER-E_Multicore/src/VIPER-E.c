@@ -154,7 +154,8 @@ int bytes_in_buffer() {
 }
 
 // Setup up method for Core 1
-void core_1(){
+// Core 1 handles writing to the sd cards
+void core_1() {
     // variables to access and write to file
     FRESULT fileResult;
     FATFS fileSystem0, fileSystem1;
@@ -163,23 +164,6 @@ void core_1(){
     char buf[100];
     char filename0[] = "0:/TEST0.csv";
     char filename1[] = "1:/TEST1.csv";
-
-    // Start at 0 for H:M:S
-    datetime_t date = {
-            .year  = 2024,
-            .month = 06,
-            .day   = 20,
-            .dotw  = 05,
-            .hour  = 00,
-            .min   = 00,
-            .sec   = 00
-    };    
-
-    initializeRTC(date);
-    sleep_us(64);
-
-    // Initialize chosen serial port
-    stdio_init_all();
 
     // Initialize SD card
     if (!sd_init_driver()) {
@@ -232,71 +216,64 @@ void core_1(){
 }
 
 // Setup up method for Core 0
-void core_0(){
+// Core 0 handles data logging and control flow
+void core_0() {
     /* RTC INITIALIZATION */
     data_buffer.write_index = 0;
     data_buffer.read_index = 0;
     stdio_init_all();
+
+    initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
+    for (int i = 0; i < 100; i++) {
+        gpio_put(BUZZER_PIN, 1);
+        sleep_ms(50);
+        gpio_put(BUZZER_PIN, 0);
+        sleep_ms(50);
+    }
     
     multicore_reset_core1();
 
     multicore_launch_core1(core_1);
-
-    char datetime_buf[256];
-    char *datetime_str = &datetime_buf[0];
-
-    // Start at 0 for H:M:S
-    datetime_t date = {
-            .year  = 2024,
-            .month = 06,
-            .day   = 20,
-            .dotw  = 05,
-            .hour  = 00,
-            .min   = 00,
-            .sec   = 00
-    };
 
     /* INITIALIZE PERIPHIALS */
     initalizeADC(ADC_PIN_0, ADC_CHANNEL_0); // mfc control patch
     initalizeADC(ADC_PIN_1, ADC_CHANNEL_1); // mfc experimental patch 
     initializeI2C();                        // I2C
     initializeGPIO(SOLENOID_PIN, GPIO_OUT); // Solenoid
-    initializeGPIO(BUZZER_PIN, GPIO_OUT);   // Buzzer
-
-    // gpio_put(BUZZER_PIN,1);
-    // sleep_ms(5000);
-    // gpio_put(BUZZER_PIN,0);
 
     uint16_t mfc_control = 0;
     uint16_t mfc_experimental = 0;
     int counter = 0;
     char solenoidSet = 0;
 
-    initializeRTC(date);
-    sleep_us(64);
-
-    gpio_put(BUZZER_PIN, 1);
-    sleep_ms(100);
-    gpio_put(BUZZER_PIN, 0);
-    sleep_ms(100);
-    gpio_put(BUZZER_PIN, 1);
-    sleep_ms(100);
-    gpio_put(BUZZER_PIN, 0);
-
-    gpio_put(BUZZER_PIN,0); // resets buzzer
-    double acc_z = (-1 * bnoReadZ()) / 100.0;
-
-    absolute_time_t startTime = get_absolute_time();
-    absolute_time_t prevTime = get_absolute_time();
+    absolute_time_t startTime = 0;
+    absolute_time_t prevTime = 0;
     int64_t time_dif = 0;
 
-    while (time_dif < 10000000) { // launch will last 300 seconds
+    gpio_put(BUZZER_PIN,1);
+    sleep_ms(5000);
+    gpio_put(BUZZER_PIN,0);
+
+    startTime = get_absolute_time();
+    while ((bnoReadZ()/100.0 < 24.53) && (bnoReadZ()/100.0 > -24.53)) {
+        if (((int) ((absolute_time_diff_us(startTime, get_absolute_time()))/1000000) % 10) == 0) {
+            gpio_put(BUZZER_PIN,1);
+        } else {
+            gpio_put(BUZZER_PIN,0);
+        }
+    }
+    gpio_put(BUZZER_PIN,0); // resets buzzer
+
+    startTime = get_absolute_time();
+    prevTime = get_absolute_time();
+    time_dif = 0;
+    while (time_dif < 300000000) { // launch will last 300 seconds
         prevTime = get_absolute_time();
-        if (time_dif >= 5000000 && time_dif < 7000000 && !solenoidSet) {
+        if (time_dif >= 2000000 && time_dif < 2500000 && !solenoidSet) {
             gpio_put(SOLENOID_PIN, 1);
             solenoidSet = 1;
         } // if
-        else if (time_dif >= 7000000 && time_dif < 9000000 && solenoidSet) {
+        else if (time_dif >= 2500000 && time_dif < 3000000 && solenoidSet) {
             gpio_put(SOLENOID_PIN, 0);
         } // else if
 
@@ -307,13 +284,12 @@ void core_0(){
         time_dif = absolute_time_diff_us(startTime, get_absolute_time());
 
         addToBuffer(mfc_control, mfc_experimental, time_dif);
+        printf("%f , %0.4f\n", (float) (time_dif/1000.0), (mfc_experimental * CONVERSION_FACTOR));
         
         counter += 1;
 
-        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 800) {} 
-        //800 seems to be the lowest before running to issues. This produces a 1250 Hz frequency
-
-    
+        // 800 seems to be the lowest before running to issues. This produces a 1250 Hz frequency
+        while ((absolute_time_diff_us(prevTime, get_absolute_time())) < 2000) {}
     } // while
     core0_finished = true;
     gpio_put(BUZZER_PIN, 1);
@@ -331,7 +307,7 @@ void core_0(){
 * Entry point into program
 */
 int main() {
+    sleep_ms(1000); // waits for everything to power on before initializing
     initializeCircularBuffer();
     core_0();
-    return 0;
 }
